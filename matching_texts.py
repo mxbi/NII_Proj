@@ -289,8 +289,6 @@ overall_book = process_formatted_book(input_formatted_book = input_formatted_boo
 									  overlapping_rate = 0.2, space_threshold = 20,
 									  irregular_layout = False, use_line_info = False)
 
-overall_book.columns
-
 overall_book_formatted = overall_book.loc[:,["Image", "predicted_line_num", "Char", "new_Char",
 											 "Unicode", "new_Unicode", "Status",
 											 "X", "Y", "X_1", "Y_1"]]
