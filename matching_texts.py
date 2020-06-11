@@ -13,9 +13,6 @@ from glob import glob
 from collections import Counter
 import json
 
-from reading_order import *
-
-
 def process_page_csv(page_csv):
 	csv_str = page_csv["labels"].str.split(" ").explode()
 	csv_df = pd.DataFrame({"Unicode": csv_str.iloc[list(range(0, len(csv_str), 3))],
@@ -107,8 +104,8 @@ def format_data(input_csv_path, input_json_path):
 
 
 def process_formatted_page(input_formatted_page, input_translate_page, input_unicode_data,
-						   overlapping_rate = 0.2, space_threshold = 20, alignment_mode = True,
-						   irregular_layout = False, use_line_info = False):
+						   overlapping_rate = 0.2, space_threshold = 20,
+						   irregular_layout = False):
 
 	predicted_page = process_one_page(input_formatted_page,
 									  overlapping_rate = overlapping_rate,
@@ -117,118 +114,102 @@ def process_formatted_page(input_formatted_page, input_translate_page, input_uni
 									  only_return_performance = False)
 	predicted_page["new_Char"] = predicted_page["Char"]
 	predicted_page["new_Unicode"] = predicted_page["Unicode"]
-	predicted_page["Status"] = 0
+	predicted_page["Status"] = 'correct'
 
-	if not alignment_mode:
-		pass
-	# 	predicted_line_num = list(set(predicted_page["predicted_line_num"]))
-	#
-	# 	if len(predicted_line_num) != input_translate_page.shape[0]: use_line_info = False
-	#
-	# 	if use_line_info:
-	# 		for line_num_idx in predicted_line_num:
-	# 			candidate_str = "".join(predicted_page["Char"][predicted_page["predicted_line_num"] == line_num_idx])
-	# 			reference_str = "".join(input_translate_page.iloc[line_num_idx,:])
-	#
-	# 			if candidate_str != reference_str:
-	# 				distinct_char_reference = Counter(reference_str)
-	# 				char_candidate_idx = 0
-	# 				for char_idx in range(len(reference_str)):
-	# 					char_reference = reference_str[char_idx]
-	# 					char_candidate = candidate_str[char_candidate_idx]
-	# 					if char_reference == char_candidate:
-	# 						char_candidate_idx += 1
-	# 					else:
-	# else:
-	# 		pass
+	candidate_str = "".join(predicted_page["Char"])
+	# reference_str = "".join(input_translate_page.values.flatten())
+	# reference_str = input_translate_page
 
-	else:
-		candidate_str = "".join(predicted_page["Char"])
-		# reference_str = "".join(input_translate_page.values.flatten())
-		reference_str = input_translate_page
+	reference_str = input_translate_page.replace("〳〵", "〱")
 
-		global_score = pairwise2.align.globalxs(reference_str, candidate_str, -1, -1, one_alignment_only = True)
+	global_score = pairwise2.align.globalxs(reference_str, candidate_str, -1, -1, one_alignment_only = True)
 #        print(format_alignment(*global_score[0]))
-		new_reference = global_score[0][0]
-		new_candidate = global_score[0][1]
+	new_reference = global_score[0][0]
+	new_candidate = global_score[0][1]
 
-		for char_idx in range(len(new_reference)):
-			char_reference = new_reference[char_idx]
-			char_candidate = new_candidate[char_idx]
+	for char_idx in range(len(new_reference)):
+		char_reference = new_reference[char_idx]
+		char_candidate = new_candidate[char_idx]
 
-			if char_reference != char_candidate:
-				unicode_info_inbuilt = char_reference.encode('unicode-escape').decode("utf-8").replace("\\u", "U+").upper()
-				retrieve_unicode_translate = list(input_unicode_data["char"].isin([char_reference]))
+		if char_reference != char_candidate:
+			unicode_info_inbuilt = char_reference.encode('unicode-escape').decode("utf-8").replace("\\u", "U+").upper()
+			retrieve_unicode_translate = list(input_unicode_data["char"].isin([char_reference]))
 
-				if any(retrieve_unicode_translate):
-					unicode_info_translated = input_unicode_data.loc[retrieve_unicode_translate,"Unicode"].iloc[0]
-					if unicode_info_inbuilt != unicode_info_translated:
-						raise ValueError('Unicode in translation data cannot match the in-built data!')
+			if any(retrieve_unicode_translate):
+				unicode_info_translated = input_unicode_data.loc[retrieve_unicode_translate,"Unicode"].iloc[0]
+				if unicode_info_inbuilt != unicode_info_translated:
+					raise ValueError('Unicode in translation data cannot match the in-built data!')
 
-				unicode_info = unicode_info_inbuilt
+			unicode_info = unicode_info_inbuilt
 
-				if char_reference != "-" and char_candidate != "-": # mismatch
+			if char_reference != "-" and char_candidate != "-": # mismatch
 
-					predicted_page.iloc[char_idx:(char_idx + 1), predicted_page.columns == "new_Char"] = char_reference
-					predicted_page.iloc[char_idx:(char_idx + 1), predicted_page.columns == "new_Unicode"] = unicode_info
-					predicted_page.iloc[char_idx:(char_idx + 1), predicted_page.columns == "Status"] = 1
-
-				if char_candidate == "-": # gap in candidate string
-
-					current_line_num = predicted_page.iloc[(char_idx - 1):char_idx,0:1].iat[0,0]
-
-					if char_idx < predicted_page.shape[0]:
-						next_line_num = predicted_page.iloc[(char_idx):(char_idx + 1),0:1].iat[0,0]
-						new_line_num = current_line_num if current_line_num == next_line_num else (current_line_num + next_line_num) / 2
-					else:
-						new_line_num = current_line_num
-
-					new_line = pd.DataFrame({"predicted_line_num": new_line_num, "Unicode": None,
-											 "Char": None, "Image": predicted_page.iloc[0:1, predicted_page.columns == "Image"].values.flatten(),
-											 "X": None, "Y": None, "X_1": None, "Y_1": None,
-											 "Height": None, "Width": None, "x_center": None,
-											 "new_Char": char_reference,
-											 "new_Unicode": unicode_info, "Status": 2}).set_index("Image", drop = False)
-					predicted_page = pd.concat([predicted_page.iloc[:char_idx], new_line, predicted_page.iloc[char_idx:]])
-
-		# examine the output
-		# predicted_page['change_idx'] = (predicted_page['Status'] != predicted_page['Status'].shift()).cumsum()
-		# predicted_page['check_flag'] = predicted_page['Status'] != 0
-		#
-		# predicted_page_changeIdx = predicted_page['change_idx'][predicted_page['check_flag']]
-		# changeIdx = Counter(predicted_page_changeIdx)
-
-		predicted_page.reset_index(inplace = True)
-		check_char_idx = 0
-
-		while check_char_idx < predicted_page.shape[0]:
-			if predicted_page['Status'].iloc[check_char_idx] == 0:
-				check_char_idx += 1
-				# print(check_char_idx)
-			else:
-				char_error_idx = []
-				while (check_char_idx < predicted_page.shape[0]) and (predicted_page['Status'].iloc[check_char_idx] != 0):
-					char_error_idx.append(check_char_idx)
-					check_char_idx += 1
-
-				if len(char_error_idx) > 1:
-					# print("TRUE")
-					candidate_chars = predicted_page['Char'].iloc[char_error_idx]
-					reference_chars = predicted_page['new_Char'].iloc[char_error_idx]
-
-					if all(candidate_chars.isin(reference_chars)):
-						predicted_page.loc[char_error_idx,'Status'] = 3 # mismatch but probability corrected
-					else:
-						if len(char_error_idx) > 4:
-							predicted_page.loc[char_error_idx,'Status'] = 4 # big mismatch
+				predicted_page.iloc[char_idx:(char_idx + 1), predicted_page.columns == "new_Char"] = char_reference
+				predicted_page.iloc[char_idx:(char_idx + 1), predicted_page.columns == "new_Unicode"] = unicode_info
+				if char_reference == "ハ" and char_candidate == "は":
+					predicted_page.iloc[char_idx:(char_idx + 1), predicted_page.columns == "Status"] = 'ハ_は'
 				else:
-					pass # blank
+					predicted_page.iloc[char_idx:(char_idx + 1), predicted_page.columns == "Status"] = 'mismatch'
+
+			if char_candidate == "-": # gap in candidate string
+
+				current_line_num = predicted_page.iloc[(char_idx - 1):char_idx,0:1].iat[0,0]
+
+				if char_idx < predicted_page.shape[0]:
+					next_line_num = predicted_page.iloc[(char_idx):(char_idx + 1),0:1].iat[0,0]
+					new_line_num = current_line_num if current_line_num == next_line_num else (current_line_num + next_line_num) / 2
+				else:
+					new_line_num = current_line_num
+
+				new_line = pd.DataFrame({"predicted_line_num": new_line_num, "Unicode": None,
+										 "Char": None, "Image": predicted_page.iloc[0:1, predicted_page.columns == "Image"].values.flatten(),
+										 "X": None, "Y": None, "X_1": None, "Y_1": None,
+										 "Height": None, "Width": None, "x_center": None,
+										 "new_Char": char_reference,
+										 "new_Unicode": unicode_info, "Status": 'gap'}).set_index("Image", drop = False)
+				predicted_page = pd.concat([predicted_page.iloc[:char_idx], new_line, predicted_page.iloc[char_idx:]])
+
+	# examine the output
+	# predicted_page['change_idx'] = (predicted_page['Status'] != predicted_page['Status'].shift()).cumsum()
+	# predicted_page['check_flag'] = predicted_page['Status'] != 0
+	#
+	# predicted_page_changeIdx = predicted_page['change_idx'][predicted_page['check_flag']]
+	# changeIdx = Counter(predicted_page_changeIdx)
+
+	predicted_page.reset_index(inplace = True)
+	check_char_idx = 0
+
+	while check_char_idx < predicted_page.shape[0]:
+		if predicted_page['Status'].iloc[check_char_idx] == 'correct':
+			check_char_idx += 1
+			# print(check_char_idx)
+		else:
+			char_error_idx = []
+			while (check_char_idx < predicted_page.shape[0]) and (predicted_page['Status'].iloc[check_char_idx] != 'correct'):
+				char_error_idx.append(check_char_idx)
+				check_char_idx += 1
+
+			if len(char_error_idx) > 1:
+				# print("TRUE")
+				candidate_chars = predicted_page['Char'].iloc[char_error_idx]
+				reference_chars = predicted_page['new_Char'].iloc[char_error_idx]
+
+				if (sum(candidate_chars == 'は') == sum(reference_chars == 'ハ')) and (sum(candidate_chars == 'は') > 0):
+					reference_chars.loc[reference_chars == 'ハ'] = 'は'
+
+				if all(candidate_chars.isin(reference_chars)):
+					predicted_page.loc[char_error_idx,'Status'] = 'self_corrected' # mismatch but probability corrected
+				else:
+					if len(char_error_idx) > 4:
+						predicted_page.loc[char_error_idx,'Status'] = 'big_mismatch' # big mismatch
+			else:
+				pass # blank
 
 	return predicted_page
 
 input_csv_path = "C:/Users/alexh/Desktop/NII/sampledata/L000021.csv"
 input_json_path = "C:/Users/alexh/Desktop/NII/sampledata/L000021.json"
-input_translate_path = "C:/Users/alexh/Desktop/NII/sampledata/text/028.txt"
+input_translate_path = "C:/Users/alexh/Desktop/NII/sampledata/text/002.txt"
 input_unicode_path = "C:/Users/alexh/Desktop/NII/sampledata/unicode_translation.csv"
 input_translate_folder = "C:/Users/alexh/Desktop/NII/sampledata/text/*.txt"
 
@@ -243,7 +224,7 @@ input_unicode_data = pd.read_csv(input_unicode_path, sep = ',', header = 0,
 
 input_formatted_book = format_data(input_csv_path, input_json_path)
 input_formatted_book = input_formatted_book[1:28]
-input_formatted_page = input_formatted_book[14]
+input_formatted_page = input_formatted_book[0]
 #output_result = process_formatted_page(input_formatted_page = input_formatted_page,
 #                                       input_translate_page = input_translate_page, 
 #                                       input_unicode_data = input_unicode_data,
@@ -252,7 +233,7 @@ input_formatted_page = input_formatted_book[14]
 
 def process_formatted_book(input_formatted_book, input_translate_folder, input_unicode_data,
 						   overlapping_rate = 0.2, space_threshold = 20,
-						   irregular_layout = False, use_line_info = False):
+						   irregular_layout = False):
 
 	input_translate_list = glob(input_translate_folder)
 
@@ -276,8 +257,7 @@ def process_formatted_book(input_formatted_book, input_translate_folder, input_u
 											   input_unicode_data = input_unicode_data,
 											   overlapping_rate = overlapping_rate,
 											   space_threshold = space_threshold,
-											   irregular_layout = irregular_layout,
-											   use_line_info = use_line_info)
+											   irregular_layout = irregular_layout)
 
 		output_result = output_result.append(temp_result__)
 
@@ -287,7 +267,7 @@ overall_book = process_formatted_book(input_formatted_book = input_formatted_boo
 									  input_translate_folder = input_translate_folder,
 									  input_unicode_data = input_unicode_data,
 									  overlapping_rate = 0.2, space_threshold = 20,
-									  irregular_layout = False, use_line_info = False)
+									  irregular_layout = False)
 
 overall_book_formatted = overall_book.loc[:,["Image", "predicted_line_num", "Char", "new_Char",
 											 "Unicode", "new_Unicode", "Status",
@@ -299,12 +279,14 @@ overall_book_formatted.rename(columns = {'predicted_line_num': 'Predicted_line_n
 										 'Unicode': 'Unicode_machine', 'new_Unicode': 'Unicode_human',
 										 'Status': 'Matching_type', 'X': 'X_0', 'Y': 'Y_0'}, inplace = True)
 
-overall_book_formatted.to_csv("L000021_output_v2.csv")
+overall_book_formatted.to_csv("L000021_output_v3.csv")
 
 overall_book_formatted = pd.read_csv("C:/Users/alexh/Desktop/NII/sampledata/text/L000021_output.csv",
                                      sep = ',', header = 0, index_col = None, encoding = "utf-8")
 
-df_wrong = overall_book_formatted.loc[overall_book_formatted['Matching_type'] != 0,:]
+df_unmatch = overall_book_formatted.loc[overall_book_formatted['Matching_type'] != 'correct',:]
+df_wrong = overall_book_formatted.loc[overall_book_formatted['Matching_type'].isin(['mismatch', 'gap', 'big_mismatch']),:]
+
 df_gap = df_wrong.loc[df_wrong['Char_machine'].map(lambda x: x is None),:]
 df_mismatch = df_wrong.loc[df_wrong['Char_machine'].map(lambda x: x is not None),:]
 
@@ -313,7 +295,7 @@ stat_gap.to_csv("stat_gap.csv")
 stat_mismatch = df_mismatch['Char_human'].value_counts()
 stat_mismatch.to_csv("stat_mismatch.csv")
 
-tmp = df_mismatch.loc[df_mismatch['Matching_type'] == 3]
+tmp = df_mismatch.loc[df_mismatch['Char_human'] == 'ハ']
 tmp_2 = tmp.loc[tmp['Char_machine'] != tmp['Char_machine'].iloc[1]]
 
 tmp_2 = (list(overall_book_formatted.loc[overall_book_formatted['Image'] == '028.jpg', 'Char_machine']))
