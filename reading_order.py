@@ -7,9 +7,7 @@ Created on Thu May 14 12:01:42 2020
 
 import pandas as pd
 import numpy as np
-#import pickle
 from tqdm import tqdm
-#from glob import glob
 #from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
 from nltk.translate.bleu_score import sentence_bleu
@@ -56,6 +54,28 @@ def generate_line_idx(one_page):
         line_index = np.unique(line_index).tolist()
 
     return line_index
+
+## Ignored. Internal function called by function “process_one_page”.
+
+def generate_line_idx_2(one_page):
+
+	# first_char = one_page.iloc[0, :]
+	line_index = [0]
+
+	for char_idx in range(1, one_page.shape[0]):
+		current_char = one_page.iloc[char_idx, :]
+		average_center = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'x_center'].mean())
+		average_width = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'Width'].mean())
+		diff_center = abs(current_char['x_center'] - average_center)
+		# diff_center = abs(current_char['x_center'] - first_char['x_center'])
+
+		if diff_center >= ((current_char['Width'] + average_width) / 2):
+			first_char = current_char
+			line_index.append(char_idx)
+		else: pass
+
+	line_index.append(one_page.shape[0])
+	return line_index
 
 ## Ignored. Internal function called by function “process_one_page”.
 
@@ -115,12 +135,15 @@ def check_subline_part(potential_line, space_threshold):
 ## Main function, process one page each time:
 
 def process_one_page(input_formatted_page, overlapping_rate = 0.2, space_threshold = 20,
-                     irregular_layout = False, only_return_performance = True, reference_page = None):
+                     irregular_layout = False, only_return_performance = True, reference_page = None,
+                     detect_line_version = 1):
     
     input_formatted_page["x_center"] = input_formatted_page["X"] + (input_formatted_page["Width"] / 2)
-    one_page = input_formatted_page.sort_values(by = ['x_center'], ascending = False)    
-    
-    line_index = generate_line_idx(one_page)    
+    one_page = input_formatted_page.sort_values(by = ['x_center'], ascending = False)
+
+    if detect_line_version == 1: line_index = generate_line_idx(one_page)
+    if detect_line_version == 2: line_index = generate_line_idx_2(one_page)
+
     flag_subline_page = False
     output = pd.DataFrame()
     
@@ -198,7 +221,8 @@ def evaluate_result(predicted_page, reference_page = None):
 
 def predict_book(input_book_path, shuffle_input = True, random_seed = 1, 
                  irregular_layout = False, overlapping_rate = 0.2, space_threshold = 20, 
-                 only_return_performance = True, reference_page = None):
+                 only_return_performance = True, reference_page = None,
+                 detect_line_version = 1):
     
     formatted_book = format_book(input_book_path, shuffle = shuffle_input, seed = random_seed)
     
@@ -212,7 +236,8 @@ def predict_book(input_book_path, shuffle_input = True, random_seed = 1,
                                    space_threshold = space_threshold,
                                    irregular_layout = irregular_layout,
                                    only_return_performance = only_return_performance, 
-                                   reference_page = reference_page)
+                                   reference_page = reference_page,
+                                   detect_line_version = detect_line_version)
         if only_return_performance:
             output_perf = output_perf.append(tmp_res)
         else:
@@ -229,7 +254,8 @@ def predict_book(input_book_path, shuffle_input = True, random_seed = 1,
 
 def predict_books(book_path_list, shuffle_input = True, random_seed = 1,
                   irregular_layout = False, overlapping_rate = 0.2, space_threshold = 20,
-                  only_return_performance = True, reference_page = None):
+                  only_return_performance = True, reference_page = None,
+                  detect_line_version = 1):
     
     output = dict()
     book_num = len(book_path_list)
@@ -241,7 +267,8 @@ def predict_books(book_path_list, shuffle_input = True, random_seed = 1,
         book_res = predict_book(input_book_path = input_book_path, shuffle_input = shuffle_input, 
                                 random_seed = random_seed, overlapping_rate = overlapping_rate, 
                                 space_threshold = space_threshold, irregular_layout = irregular_layout,
-                                only_return_performance = only_return_performance, reference_page = reference_page)
+                                only_return_performance = only_return_performance,
+                                reference_page = reference_page, detect_line_version = detect_line_version)
 
         book_id = book_res.index[0].split("_")[0] if only_return_performance else book_res["performance"].index[0].split("_")[0]
         
@@ -253,29 +280,30 @@ def predict_books(book_path_list, shuffle_input = True, random_seed = 1,
 
 ### Examples. Ignored.
 
-#input_book_path = "C:/Users/alexh/Desktop/NII/csv_folder/brsk00000_coordinate.csv"
-#
-#formatted_book = format_book(input_book_path)
-#input_formatted_page = formatted_book[95]
-#tmp_res = process_one_page(input_formatted_page)
-#
-#book_res_2 = predict_book(input_book_path, only_return_performance = False)
-#
-#book_path_list = glob("C:/Users/alexh/Desktop/NII/csv_folder/*.csv")
-#books_result_v3 = predict_books(book_path_list)
-#pickle.dump(books_result_v4, open("py_res_v4.pkl", "wb"))
-#
-#pickle.dump(books_result, open("py_res_v1.pkl", "wb"))
-#
-#books_res_df = pd.concat(books_result)
-#books_res_df.to_csv("py_res_v1.csv")
-#books_res_original_df = pd.concat(books_result_original)
-#books_res_original_df.to_csv("py_res_v0.csv")
-#books_res_v4_df = pd.concat(books_result_v4)
-#books_res_v4_df.to_csv("py_res_v4.csv")
-#
-#books_res_v3 = pickle.load(open("py_res_v3.pkl", "rb"))
-#books_res_v3_df = pd.concat(books_result_v3)
-#books_res_v3_df.mean(axis = 0)
-#books_res_v3_df.loc[books_res_v3_df["subline"] == True,:].mean(axis = 0)
-#books_res_v3_df.loc[books_res_v3_df["subline"] != True,:].mean(axis = 0)
+import pickle
+from glob import glob
+
+input_book_path = "C:/Users/alexh/Desktop/NII/csv_folder/brsk00000_coordinate.csv"
+
+formatted_book = format_book(input_book_path)
+input_formatted_page = formatted_book[95]
+tmp_res = process_one_page(input_formatted_page)
+
+book_res_2 = predict_book(input_book_path, only_return_performance = False)
+
+book_path_list = glob("C:/Users/alexh/Desktop/NII/csv_folder/*.csv")
+books_result_v4_irregular = predict_books(book_path_list, detect_line_version = 1, irregular_layout = True)
+books_result_v5_irregular = predict_books(book_path_list, detect_line_version = 2, irregular_layout = True)
+
+pickle.dump(books_result_v4_irregular, open("books_result_v4_irregular.pkl", "wb"))
+pickle.dump(books_result_v4_regular, open("books_result_v4_regular.pkl", "wb"))
+pickle.dump(books_result_v5_irregular, open("books_result_v5_irregular.pkl", "wb"))
+pickle.dump(books_result_v5_regular, open("books_result_v5_regular.pkl", "wb"))
+
+books_res_df = pd.concat(books_result_v5_irregular)
+books_res_df.to_csv("py_res_v5.csv")
+books_res_df.mean(axis = 0)
+books_res_df.loc[books_res_df["subline"] == True,:].mean(axis = 0)
+books_res_df.loc[books_res_df["subline"] != True,:].mean(axis = 0)
+
+books_result_v4_regular = pickle.load(open("books_result_v5_regular.pkl", "rb"))

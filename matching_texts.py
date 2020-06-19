@@ -281,13 +281,13 @@ overall_book_formatted.rename(columns = {'predicted_line_num': 'Predicted_line_n
 
 overall_book_formatted.to_csv("L000021_output_v3.csv")
 
-overall_book_formatted = pd.read_csv("C:/Users/alexh/Desktop/NII/sampledata/text/L000021_output.csv",
+overall_book_formatted = pd.read_csv("C:/Users/alexh/Desktop/NII/L000021_output_v3.csv",
                                      sep = ',', header = 0, index_col = None, encoding = "utf-8")
 
 df_unmatch = overall_book_formatted.loc[overall_book_formatted['Matching_type'] != 'correct',:]
 df_wrong = overall_book_formatted.loc[overall_book_formatted['Matching_type'].isin(['mismatch', 'gap', 'big_mismatch']),:]
 
-df_gap = df_wrong.loc[df_wrong['Char_machine'].map(lambda x: x is None),:]
+df_gap = df_wrong.loc[df_wrong['Matching_type'] == 'gap']
 df_mismatch = df_wrong.loc[df_wrong['Char_machine'].map(lambda x: x is not None),:]
 
 stat_gap = df_gap['Char_human'].value_counts()
