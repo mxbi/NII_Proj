@@ -13,6 +13,7 @@ from glob import glob
 from collections import Counter
 import json
 
+## Ignored. Internal function called by function “format_csv”.
 def process_page_csv(page_csv):
 	csv_str = page_csv["labels"].str.split(" ").explode()
 	csv_df = pd.DataFrame({"Unicode": csv_str.iloc[list(range(0, len(csv_str), 3))],
@@ -33,7 +34,7 @@ def process_page_csv(page_csv):
 
 	return csv_df
 
-
+## Ignored. Internal function called by function “format_data”.
 def format_csv(input_csv):
 
 	csv_df = list()
@@ -44,7 +45,7 @@ def format_csv(input_csv):
 
 	return csv_df
 
-
+## Ignored. Internal function called by function “format_data”.
 def format_json(input_json):
 	json_df = list()
 	for json_key in list(input_json.keys()):
@@ -66,7 +67,7 @@ def format_json(input_json):
 
 	return json_df
 
-
+## Used to format csv and json files. Internal function called by function “process_formatted_page”.
 def format_data(input_csv_path, input_json_path):
 
 	input_csv = pd.read_csv(input_csv_path, sep = ',', header = 0, index_col = 0)
@@ -83,16 +84,19 @@ def format_data(input_csv_path, input_json_path):
 		page_csv = csv_df[idx]
 		page_json = json_df[idx]
 
-		csv_index = ~page_csv["csv_position"].isin(page_json["json_position"]).values
-		json_index = ~page_json["json_position"].isin(page_csv["csv_position"]).values
+		csv_index = abs(page_csv["x_center_csv"] - page_json["x_center"]) > 1
+		json_index = abs(page_json["x_center"] - page_csv["x_center_csv"]) > 1
+
+		# csv_index = ~page_csv["csv_position"].isin(page_json["json_position"]).values
+		# json_index = ~page_json["json_position"].isin(page_csv["csv_position"]).values
 
 		if any(csv_index):
 			json_missing = page_csv.iloc[csv_index,:]
-			raise ValueError('Pages from csv and json files cannot match!')
+			raise ValueError('Json missing: pages from csv and json files cannot match!')
 
 		if any(json_index):
 			csv_missing = page_json.iloc[json_index,:]
-			raise ValueError('Pages from csv and json files cannot match!')
+			raise ValueError('CSV missing: Pages from csv and json files cannot match!')
 
 		concat_page_df = pd.concat([page_csv[["Unicode", "Char", "Image"]],
 									page_json[["X", "Y", "X_1", "Y_1", "Height", "Width"]]], axis = 1)
@@ -102,7 +106,7 @@ def format_data(input_csv_path, input_json_path):
 
 	return input_data_list
 
-
+## Main function.
 def process_formatted_page(input_formatted_page, input_translate_page, input_unicode_data,
 						   overlapping_rate = 0.2, space_threshold = 20,
 						   irregular_layout = False):
@@ -207,24 +211,24 @@ def process_formatted_page(input_formatted_page, input_translate_page, input_uni
 
 	return predicted_page
 
-input_csv_path = "C:/Users/alexh/Desktop/NII/sampledata/L000021.csv"
-input_json_path = "C:/Users/alexh/Desktop/NII/sampledata/L000021.json"
-input_translate_path = "C:/Users/alexh/Desktop/NII/sampledata/text/002.txt"
-input_unicode_path = "C:/Users/alexh/Desktop/NII/sampledata/unicode_translation.csv"
-input_translate_folder = "C:/Users/alexh/Desktop/NII/sampledata/text/*.txt"
+# input_csv_path = "C:/Users/alexh/Desktop/NII/sampledata/L000021.csv"
+# input_json_path = "C:/Users/alexh/Desktop/NII/sampledata/L000021.json"
+# input_translate_path = "C:/Users/alexh/Desktop/NII/sampledata/text/002.txt"
+# input_unicode_path = "C:/Users/alexh/Desktop/NII/sampledata/unicode_translation.csv"
+# input_translate_folder = "C:/Users/alexh/Desktop/NII/sampledata/text/*.txt"
 
 # input_translate_page = pd.read_csv(input_translate_path, sep = '\n', header = None,
 # 								   index_col = None, encoding = "utf-8", skipinitialspace=True)
-input_translate_page = open(input_translate_path, "r", encoding='utf-8').readlines()
-input_translate_page = "".join(input_translate_page)
-input_translate_page = "".join(input_translate_page.split())
-
-input_unicode_data = pd.read_csv(input_unicode_path, sep = ',', header = 0,
-								 index_col = None, encoding = "utf-8")
-
-input_formatted_book = format_data(input_csv_path, input_json_path)
-input_formatted_book = input_formatted_book[1:28]
-input_formatted_page = input_formatted_book[0]
+# input_translate_page = open(input_translate_path, "r", encoding='utf-8').readlines()
+# input_translate_page = "".join(input_translate_page)
+# input_translate_page = "".join(input_translate_page.split())
+#
+# input_unicode_data = pd.read_csv(input_unicode_path, sep = ',', header = 0,
+# 								 index_col = None, encoding = "utf-8")
+#
+# input_formatted_book = format_data(input_csv_path, input_json_path)
+# input_formatted_book = input_formatted_book[1:28]
+# input_formatted_page = input_formatted_book[0]
 #output_result = process_formatted_page(input_formatted_page = input_formatted_page,
 #                                       input_translate_page = input_translate_page, 
 #                                       input_unicode_data = input_unicode_data,
@@ -263,40 +267,40 @@ def process_formatted_book(input_formatted_book, input_translate_folder, input_u
 
 	return output_result
 
-overall_book = process_formatted_book(input_formatted_book = input_formatted_book,
-									  input_translate_folder = input_translate_folder,
-									  input_unicode_data = input_unicode_data,
-									  overlapping_rate = 0.2, space_threshold = 20,
-									  irregular_layout = False)
-
-overall_book_formatted = overall_book.loc[:,["Image", "predicted_line_num", "Char", "new_Char",
-											 "Unicode", "new_Unicode", "Status",
-											 "X", "Y", "X_1", "Y_1"]]
-
-overall_book_formatted["Image"] = overall_book_formatted["Image"].map(lambda x: x.replace("L000021/", ""))
-overall_book_formatted.insert(0, "Book_id", "L000021")
-overall_book_formatted.rename(columns = {'predicted_line_num': 'Predicted_line_num', 'Char': 'Char_machine', 'new_Char': 'Char_human',
-										 'Unicode': 'Unicode_machine', 'new_Unicode': 'Unicode_human',
-										 'Status': 'Matching_type', 'X': 'X_0', 'Y': 'Y_0'}, inplace = True)
-
-overall_book_formatted.to_csv("L000021_output_v3.csv")
-
-overall_book_formatted = pd.read_csv("C:/Users/alexh/Desktop/NII/L000021_output_v3.csv",
-                                     sep = ',', header = 0, index_col = None, encoding = "utf-8")
-
-df_unmatch = overall_book_formatted.loc[overall_book_formatted['Matching_type'] != 'correct',:]
-df_wrong = overall_book_formatted.loc[overall_book_formatted['Matching_type'].isin(['mismatch', 'gap', 'big_mismatch']),:]
-
-df_gap = df_wrong.loc[df_wrong['Matching_type'] == 'gap']
-df_mismatch = df_wrong.loc[df_wrong['Char_machine'].map(lambda x: x is not None),:]
-
-stat_gap = df_gap['Char_human'].value_counts()
-stat_gap.to_csv("stat_gap.csv")
-stat_mismatch = df_mismatch['Char_human'].value_counts()
-stat_mismatch.to_csv("stat_mismatch.csv")
-
-tmp = df_mismatch.loc[df_mismatch['Char_human'] == 'ハ']
-tmp_2 = tmp.loc[tmp['Char_machine'] != tmp['Char_machine'].iloc[1]]
-
-tmp_2 = (list(overall_book_formatted.loc[overall_book_formatted['Image'] == '028.jpg', 'Char_machine']))
-''.join([char for char in tmp_2 if char is not None])
+# overall_book = process_formatted_book(input_formatted_book = input_formatted_book,
+# 									  input_translate_folder = input_translate_folder,
+# 									  input_unicode_data = input_unicode_data,
+# 									  overlapping_rate = 0.2, space_threshold = 20,
+# 									  irregular_layout = False)
+#
+# overall_book_formatted = overall_book.loc[:,["Image", "predicted_line_num", "Char", "new_Char",
+# 											 "Unicode", "new_Unicode", "Status",
+# 											 "X", "Y", "X_1", "Y_1"]]
+#
+# overall_book_formatted["Image"] = overall_book_formatted["Image"].map(lambda x: x.replace("L000021/", ""))
+# overall_book_formatted.insert(0, "Book_id", "L000021")
+# overall_book_formatted.rename(columns = {'predicted_line_num': 'Predicted_line_num', 'Char': 'Char_machine', 'new_Char': 'Char_human',
+# 										 'Unicode': 'Unicode_machine', 'new_Unicode': 'Unicode_human',
+# 										 'Status': 'Matching_type', 'X': 'X_0', 'Y': 'Y_0'}, inplace = True)
+#
+# overall_book_formatted.to_csv("L000021_output_v3.csv")
+#
+# overall_book_formatted = pd.read_csv("C:/Users/alexh/Desktop/NII/L000021_output_v3.csv",
+#                                      sep = ',', header = 0, index_col = None, encoding = "utf-8")
+#
+# df_unmatch = overall_book_formatted.loc[overall_book_formatted['Matching_type'] != 'correct',:]
+# df_wrong = overall_book_formatted.loc[overall_book_formatted['Matching_type'].isin(['mismatch', 'gap', 'big_mismatch']),:]
+#
+# df_gap = df_wrong.loc[df_wrong['Matching_type'] == 'gap']
+# df_mismatch = df_wrong.loc[df_wrong['Char_machine'].map(lambda x: x is not None),:]
+#
+# stat_gap = df_gap['Char_human'].value_counts()
+# stat_gap.to_csv("stat_gap.csv")
+# stat_mismatch = df_mismatch['Char_human'].value_counts()
+# stat_mismatch.to_csv("stat_mismatch.csv")
+#
+# tmp = df_mismatch.loc[df_mismatch['Char_human'] == 'ハ']
+# tmp_2 = tmp.loc[tmp['Char_machine'] != tmp['Char_machine'].iloc[1]]
+#
+# tmp_2 = (list(overall_book_formatted.loc[overall_book_formatted['Image'] == '028.jpg', 'Char_machine']))
+# ''.join([char for char in tmp_2 if char is not None])

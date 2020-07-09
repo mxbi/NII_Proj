@@ -55,27 +55,109 @@ def generate_line_idx(one_page):
 
     return line_index
 
+## Ignored. Temporary internal function.
+
+# def generate_threshold(one_page, start_idx, char_idx):
+#     current_char = one_page.iloc[char_idx, :]
+#     average_center = float(one_page.iloc[start_idx:char_idx, one_page.columns == 'x_center'].mean())
+#     average_width = float(one_page.iloc[start_idx:char_idx, one_page.columns == 'Width'].mean())
+#     diff_center = abs(current_char['x_center'] - average_center)
+#     threshold = (current_char['Width'] + average_width) / 2
+#
+#     return diff_center, threshold
+
 ## Ignored. Internal function called by function “process_one_page”.
 
 def generate_line_idx_2(one_page):
+    line_index = [0]
+    for char_idx in range(1, one_page.shape[0]):
+        current_char = one_page.iloc[char_idx, :]
+        average_center = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'x_center'].mean())
+        average_width = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'Width'].mean())
+        diff_center = abs(current_char['x_center'] - average_center)
+        threshold = (current_char['Width'] + average_width) / 2
 
-	# first_char = one_page.iloc[0, :]
-	line_index = [0]
+        if diff_center > threshold:
+            line_index.append(char_idx)
+        else: pass
 
-	for char_idx in range(1, one_page.shape[0]):
-		current_char = one_page.iloc[char_idx, :]
-		average_center = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'x_center'].mean())
-		average_width = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'Width'].mean())
-		diff_center = abs(current_char['x_center'] - average_center)
-		# diff_center = abs(current_char['x_center'] - first_char['x_center'])
+    line_index.append(one_page.shape[0])
+    return line_index
 
-		if diff_center >= ((current_char['Width'] + average_width) / 2):
-			first_char = current_char
-			line_index.append(char_idx)
-		else: pass
+## Ignored. Internal function called by function “process_one_page”.
+## Add checker.
 
-	line_index.append(one_page.shape[0])
-	return line_index
+def generate_line_idx_3(one_page):
+    line_index = [0]
+    for char_idx in range(1, one_page.shape[0]):
+        current_char = one_page.iloc[char_idx, :]
+        average_center = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'x_center'].mean())
+        average_width = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'Width'].mean())
+        diff_center = abs(current_char['x_center'] - average_center)
+        threshold = (current_char['Width'] + average_width) / 2
+
+        # diff_center, threshold = generate_threshold(one_page, start_idx = line_index[-1], char_idx = char_idx)
+
+        if diff_center > threshold:
+            if one_page.shape[0] - char_idx >= 3: # check next two chars
+                next_char_1 = one_page.iloc[(char_idx + 1), :]
+                next_char_2 = one_page.iloc[(char_idx + 2), :]
+                checker_1 = abs(next_char_1['x_center'] - average_center) > ((next_char_1['Width'] + average_width) / 2)
+                checker_2 = abs(next_char_2['x_center'] - average_center) > ((next_char_2['Width'] + average_width) / 2)
+                checker = all([checker_1, checker_2])
+            elif one_page.shape[0] - char_idx == 2:  # check next char
+                next_char = one_page.iloc[(char_idx + 1), :]
+                checker = abs(next_char['x_center'] - average_center) > ((next_char['Width'] + average_width) / 2)
+            else: checker = True
+
+            if checker:
+                line_index.append(char_idx)
+            else: pass
+
+        else: pass
+
+    line_index.append(one_page.shape[0])
+    return line_index
+
+## Ignored. Internal function called by function “process_one_page”.
+
+def generate_line_idx_4(one_page):
+    line_index = [0]
+    line_space = pd.Series(0)
+    for char_idx in range(1, one_page.shape[0]):
+        mean_line_space = line_space.mean()
+        current_char = one_page.iloc[char_idx, :]
+        average_center = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'x_center'].mean())
+        average_width = float(one_page.iloc[line_index[-1]:char_idx, one_page.columns == 'Width'].mean())
+        diff_center = abs(current_char['x_center'] - average_center)
+        threshold = ((current_char['Width'] + average_width) / 2) + mean_line_space
+
+        # diff_center, threshold = generate_threshold(one_page, start_idx = line_index[-1], char_idx = char_idx)
+
+        if diff_center > threshold:
+            if one_page.shape[0] - char_idx >= 3: # check next two chars
+                next_char_1 = one_page.iloc[(char_idx + 1), :]
+                next_char_2 = one_page.iloc[(char_idx + 2), :]
+                checker_1 = abs(next_char_1['x_center'] - average_center) > ((next_char_1['Width'] + average_width) / 2)
+                checker_2 = abs(next_char_2['x_center'] - average_center) > ((next_char_2['Width'] + average_width) / 2)
+                checker = all([checker_1, checker_2])
+            elif one_page.shape[0] - char_idx == 2:  # check next char
+                next_char = one_page.iloc[(char_idx + 1), :]
+                checker = abs(next_char['x_center'] - average_center) > ((next_char['Width'] + average_width) / 2)
+            else: checker = True
+
+            if checker:
+                line_index.append(char_idx)
+                previous_char = one_page.iloc[(char_idx - 1), :]
+                diff_line_space = previous_char['x_center'] - current_char['x_center']
+                line_space = line_space.append(pd.Series(diff_line_space), ignore_index = True)
+
+            else: pass
+
+        else: pass
+
+    line_index.append(one_page.shape[0])
+    return line_index
 
 ## Ignored. Internal function called by function “process_one_page”.
 
@@ -135,14 +217,32 @@ def check_subline_part(potential_line, space_threshold):
 ## Main function, process one page each time:
 
 def process_one_page(input_formatted_page, overlapping_rate = 0.2, space_threshold = 20,
-                     irregular_layout = False, only_return_performance = True, reference_page = None,
+                     irregular_layout = True, only_return_performance = False, reference_page = None,
                      detect_line_version = 1):
     
     input_formatted_page["x_center"] = input_formatted_page["X"] + (input_formatted_page["Width"] / 2)
+    input_formatted_page["y_center"] = input_formatted_page["Y"] + (input_formatted_page["Height"] / 2)
     one_page = input_formatted_page.sort_values(by = ['x_center'], ascending = False)
+    one_page.reset_index(inplace = True)
 
-    if detect_line_version == 1: line_index = generate_line_idx(one_page)
-    if detect_line_version == 2: line_index = generate_line_idx_2(one_page)
+    if detect_line_version == 1:
+        line_index = generate_line_idx(one_page)
+    elif detect_line_version == 2:
+        line_index = generate_line_idx_2(one_page)
+    elif detect_line_version == 3:
+        line_index = generate_line_idx_3(one_page)
+    elif detect_line_version == 4:
+        line_index = generate_line_idx_4(one_page)
+    elif detect_line_version == 'test':
+        line_index_1 = generate_line_idx(one_page)
+        line_index_2 = generate_line_idx_4(one_page)
+        if line_index_1 != line_index_2:
+            tmp = pd.DataFrame({'page': one_page['Image'].iloc[0], 'line_index_1': [line_index_1],
+                                'line_index_2': [line_index_2]})
+            tmp.to_csv("tmp_check_idx.csv", mode = 'a')
+        else: pass
+        line_index = line_index_2
+    else: raise ValueError('Wrong detect_line_version Value!')
 
     flag_subline_page = False
     output = pd.DataFrame()
@@ -156,9 +256,10 @@ def process_one_page(input_formatted_page, overlapping_rate = 0.2, space_thresho
         
         y_val_diff = abs(np.diff(potential_line["Y"]))
         y_val_ref  = np.array(potential_line["Height"][0:len(y_val_diff)]) * (1 - overlapping_rate)
-        
-        flag_subline = sum(y_val_diff - y_val_ref < 0) > 3 if irregular_layout else False
-        
+
+        check_elements = y_val_diff - y_val_ref < 0
+        flag_subline = sum(check_elements) > 3 if irregular_layout else False
+        # flag_subline
         if not flag_subline:
             output = pd.concat([output, potential_line], axis = 0)
         else:
@@ -181,13 +282,20 @@ def process_one_page(input_formatted_page, overlapping_rate = 0.2, space_thresho
                 elif potential_line.shape[0] == 1:
                     output = pd.concat([output, potential_line], axis = 0)
                 else: break
+    output.set_index('index', inplace = True)
+    if output.shape[0] != input_formatted_page.shape[0]:
+        raise ValueError('Characters Missing!', 'Image:', output.iloc[0]['Image'],
+                         'Reference:', input_formatted_page.shape[0], 'Output:', output.shape[0])
     
     if only_return_performance:
         perf = evaluate_result(predicted_page = output, reference_page = reference_page)
         output = pd.concat([perf, pd.DataFrame({"subline": flag_subline_page}, 
-                                               index = [input_formatted_page["Image"].iloc[0]])], axis = 1)
-    
-    return output  
+                                               index = [input_formatted_page["Image"].iloc[0]])],
+                           axis = 1)
+    else:
+        output = [output, flag_subline_page]
+
+    return output
 
 ## Evaluate results:
 
@@ -220,8 +328,8 @@ def evaluate_result(predicted_page, reference_page = None):
 ## Wrapper of function "process_one_page". This function can process one book each time:
 
 def predict_book(input_book_path, shuffle_input = True, random_seed = 1, 
-                 irregular_layout = False, overlapping_rate = 0.2, space_threshold = 20, 
-                 only_return_performance = True, reference_page = None,
+                 irregular_layout = True, overlapping_rate = 0.2, space_threshold = 20,
+                 only_return_performance = False, reference_page = None,
                  detect_line_version = 1):
     
     formatted_book = format_book(input_book_path, shuffle = shuffle_input, seed = random_seed)
@@ -241,9 +349,12 @@ def predict_book(input_book_path, shuffle_input = True, random_seed = 1,
         if only_return_performance:
             output_perf = output_perf.append(tmp_res)
         else:
-            tmp_perf = evaluate_result(predicted_page = tmp_res, reference_page = reference_page)
+            tmp_perf = evaluate_result(predicted_page = tmp_res[0], reference_page = reference_page)
+            tmp_perf = pd.concat([tmp_perf, pd.DataFrame({"subline": tmp_res[1]},
+                                                   index=[input_formatted_page["Image"].iloc[0]])],
+                               axis=1)
             output_perf = output_perf.append(tmp_perf)
-            output_book = output_book.append(tmp_res)
+            output_book = output_book.append(tmp_res[0])
             
     if only_return_performance:
         output = output_perf
@@ -253,8 +364,8 @@ def predict_book(input_book_path, shuffle_input = True, random_seed = 1,
     return output
 
 def predict_books(book_path_list, shuffle_input = True, random_seed = 1,
-                  irregular_layout = False, overlapping_rate = 0.2, space_threshold = 20,
-                  only_return_performance = True, reference_page = None,
+                  irregular_layout = True, overlapping_rate = 0.2, space_threshold = 20,
+                  only_return_performance = False, reference_page = None,
                   detect_line_version = 1):
     
     output = dict()
@@ -277,33 +388,32 @@ def predict_books(book_path_list, shuffle_input = True, random_seed = 1,
     
     return output
 
+def draw_line(coordinate_Val, image_path, line_color, output_path):
+    from PIL import Image, ImageDraw
+    im = Image.open(image_path)
+    d = ImageDraw.Draw(im)
+    d.line(coordinate_Val, fill = line_color, width = 6)
+    im.show()
+    im.save(output_path)
 
-### Examples. Ignored.
+    return 'Completed'
 
-import pickle
-from glob import glob
+def display_result(predicted_df, page_id, output_path, line_color = (0, 0, 255)):
+    # image_path = 'C:\\Users\\alexh\\Desktop\\NII\\100249371\\100249371_00007_1.jpg'
+    # predicted_df = books_result_v5_irregular
+    # output_path = 'v5_' + '100249371_00007_1.jpg'
+    from os import path
+    book_id = page_id.split("_")[0]
+    image_path = 'C:\\Users\\alexh\\Desktop\\NII\\' + book_id + '\\' + page_id + '.jpg'
+    if not path.exists(image_path):
+        raise ValueError('Wrong image_path!')
+    else:
+        prediction_df = predicted_df[book_id]['predicted_book']
+        prediction_page = prediction_df[prediction_df['Image'] == page_id]
+        prediction_page["y_center"] = prediction_page["Y"] + (prediction_page["Height"] / 2)
+        coordinate_Val = list(zip(prediction_page.loc[:, 'x_center'], prediction_page.loc[:, 'y_center']))
 
-input_book_path = "C:/Users/alexh/Desktop/NII/csv_folder/brsk00000_coordinate.csv"
+        draw_line(coordinate_Val = coordinate_Val, image_path = image_path,
+                  line_color = line_color, output_path = output_path)
 
-formatted_book = format_book(input_book_path)
-input_formatted_page = formatted_book[95]
-tmp_res = process_one_page(input_formatted_page)
-
-book_res_2 = predict_book(input_book_path, only_return_performance = False)
-
-book_path_list = glob("C:/Users/alexh/Desktop/NII/csv_folder/*.csv")
-books_result_v4_irregular = predict_books(book_path_list, detect_line_version = 1, irregular_layout = True)
-books_result_v5_irregular = predict_books(book_path_list, detect_line_version = 2, irregular_layout = True)
-
-pickle.dump(books_result_v4_irregular, open("books_result_v4_irregular.pkl", "wb"))
-pickle.dump(books_result_v4_regular, open("books_result_v4_regular.pkl", "wb"))
-pickle.dump(books_result_v5_irregular, open("books_result_v5_irregular.pkl", "wb"))
-pickle.dump(books_result_v5_regular, open("books_result_v5_regular.pkl", "wb"))
-
-books_res_df = pd.concat(books_result_v5_irregular)
-books_res_df.to_csv("py_res_v5.csv")
-books_res_df.mean(axis = 0)
-books_res_df.loc[books_res_df["subline"] == True,:].mean(axis = 0)
-books_res_df.loc[books_res_df["subline"] != True,:].mean(axis = 0)
-
-books_result_v4_regular = pickle.load(open("books_result_v5_regular.pkl", "rb"))
+    return 'Completed'
