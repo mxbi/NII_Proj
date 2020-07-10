@@ -303,4 +303,4 @@ def process_formatted_book(input_formatted_book, input_translate_folder, input_u
 # tmp_2 = tmp.loc[tmp['Char_machine'] != tmp['Char_machine'].iloc[1]]
 #
 # tmp_2 = (list(overall_book_formatted.loc[overall_book_formatted['Image'] == '028.jpg', 'Char_machine']))
-# ''.join([char for char in tmp_2 if char is not None])
+# ''.join([char for char in tmp_2 if char is not None]) 

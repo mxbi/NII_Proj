@@ -392,8 +392,8 @@ def draw_line(coordinate_Val, image_path, line_color, output_path):
     from PIL import Image, ImageDraw
     im = Image.open(image_path)
     d = ImageDraw.Draw(im)
-    d.line(coordinate_Val, fill = line_color, width = 6)
-    im.show()
+    d.line(coordinate_Val, fill = line_color, width = 4)
+    #im.show()
     im.save(output_path)
 
     return 'Completed'

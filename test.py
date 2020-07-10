@@ -85,8 +85,8 @@ book_res_v1_kmeans = predict_book(formatted_book, only_return_performance = Fals
 book_res_v3_rules  = predict_book(formatted_book, only_return_performance = False, detect_line_version = 3)
 
 input_formatted_page = formatted_data[2]
-book_res_v1_kmeans.to_csv("C:/Users/alexh/Desktop/NII/newTest/predicted_res_v1_kmeans")
-book_res_v3_rules.to_csv("C:/Users/alexh/Desktop/NII/newTest/predicted_res_v3_allRules")
+book_res_v1_kmeans.to_csv("C:/Users/alexh/Desktop/NII/newTest/predicted_res_v1_kmeans.csv", index = False)
+book_res_v3_rules.to_csv("C:/Users/alexh/Desktop/NII/newTest/predicted_res_v3_allRules.csv", index = False)
 
 v1_res = book_res_v1_kmeans['Char'].values
 v3_res = book_res_v3_rules['Char'].values
@@ -102,3 +102,23 @@ for i in range(0, len(formatted_data)):
 
 v1_count = book_res_v1_kmeans['predicted_book']['Image'].value_counts()
 raw_count = raw_df['Image'].value_counts()
+
+######
+
+page_path_list = glob("C:/Users/alexh/Desktop/NII/newTest/tokaidochuhizakurige/*.jpg")
+v3_data = pd.read_csv("C:/Users/alexh/Desktop/NII/newTest/predicted_res_v3_updated.csv", sep = ',',header = 0)
+
+def display_result(input_data):
+    page_id = list(set(input_data['Image']))
+    for idx in page_id:
+        image_path = 'C:/Users/alexh/Desktop/NII/newTest/' + idx
+        output_path = 'C:/Users/alexh/Desktop/NII/newTest/display_result/' + idx
+        prediction_page = input_data[input_data['Image'] == idx]
+        coordinate_Val = list(zip(prediction_page.loc[:, 'x_center'], prediction_page.loc[:, 'y_center']))
+
+        draw_line(coordinate_Val = coordinate_Val, image_path = image_path,
+                  line_color = (0, 0, 255), output_path = output_path)
+
+    return 'Completed'
+
+display_result(v3_data)
