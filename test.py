@@ -4,9 +4,11 @@ import pickle
 from glob import glob
 
 input_book_path = "C:/Users/alexh/Desktop/NII/csv_folder/100249371_coordinate.csv"
+input_book_path = "C:/Users/alexh/Desktop/NII/csv_folder/brsk00000_coordinate.csv"
 
 formatted_book = format_book(input_book_path)
 input_formatted_page = formatted_book[18]
+input_formatted_page = formatted_book[6]
 tmp_res = process_one_page(input_formatted_page)
 
 res_kmeans = predict_book(input_book_path, detect_line_version = 1, irregular_layout = True, only_return_performance = True)
@@ -16,7 +18,12 @@ books_result_v4_irregular = predict_books(book_path_list, detect_line_version = 
 books_result_v5_irregular = predict_books(book_path_list, detect_line_version = 2, irregular_layout = True, only_return_performance = False)
 books_result_v6_irregular = predict_books(book_path_list, detect_line_version = 3, irregular_layout = True, only_return_performance = False)
 books_result_v7_irregular = predict_books(book_path_list, detect_line_version = 4, irregular_layout = True, only_return_performance = False)
+books_result_v8_irregular = predict_books(book_path_list, detect_line_version = 5, irregular_layout = True, only_return_performance = False)
 
+
+books_result_v9_irregular = predict_books(book_path_list, detect_line_version = 5, process_subline_version = 2, irregular_layout = True, only_return_performance = False)
+pickle.dump(books_result_v9_irregular, open("books_result_v9_irregular.pkl", "wb"))
+pickle.dump(books_result_v8_irregular, open("books_result_v8_irregular.pkl", "wb"))
 pickle.dump(books_result_v7_irregular, open("books_result_v7_irregular.pkl", "wb"))
 
 books_res_df = pd.concat(books_result_v4_irregular)
@@ -28,6 +35,7 @@ books_res_df.loc[books_res_df["subline"] != True,:].mean(axis = 0)
 books_result_v4_irregular = pickle.load(open("books_result_v4_irregular.pkl", "rb"))
 books_result_v5_irregular = pickle.load(open("books_result_v5_irregular.pkl", "rb"))
 books_result_v6_irregular = pickle.load(open("books_result_v6_irregular.pkl", "rb"))
+books_result_v8_irregular = pickle.load(open("books_result_v8_irregular.pkl", "rb"))
 
 tmp = books_res_df[(books_res_df['edit_norm'] < 0.7) & (books_res_df['bleu_score'] < 0.7)]
 
@@ -52,14 +60,19 @@ def format_perf(output_df):
         output_perf = output_perf.append(tmp_perf)
     return output_perf
 
-perf_tmp = format_perf(books_result_v7_irregular)
-perf_tmp.mean(axis = 0)
-perf_tmp.loc[perf_tmp["subline"] != True,:].mean(axis = 0)
-perf_tmp.loc[perf_tmp["subline"] == True,:].mean(axis = 0)
+def format_prediction(output_df):
+    output_pred = pd.DataFrame()
+    for Keys in output_df.keys():
+        tmp_pred = output_df[Keys]['predicted_book']
+        output_pred = output_pred.append(tmp_pred)
+    return output_pred
 
-input_csv_path = 'C:/Users/alexh/Desktop/NII/newTest/kurige.csv'
-input_json_path = 'C:/Users/alexh/Desktop/NII/newTest/kurige.json'
-formatted_book = format_data(input_csv_path, input_json_path)
+perf_tmp = format_perf(books_result_v9_irregular)
+pred_tmp = format_prediction(books_result_v9_irregular)
+
+perf_tmp.to_csv("C:/Users/alexh/Desktop/NII/NII_Evaluation/NII_EvaluationReport/predicted_res_v9.csv", index = True)
+pred_tmp.to_csv("C:/Users/alexh/Desktop/NII/NII_Evaluation/NII_EvaluationReport/predicted_book_v9.csv", index = True)
+
 
 def predict_book(formatted_book,
                  irregular_layout=True, overlapping_rate=0.2, space_threshold=20,
@@ -122,3 +135,15 @@ def display_result(input_data):
     return 'Completed'
 
 display_result(v3_data)
+
+v3 = predict_book(input_book_path, detect_line_version = 3, irregular_layout = True, only_return_performance = True)
+v5_20 = predict_book(input_book_path, detect_line_version = 5, irregular_layout = True, only_return_performance = True)
+
+def show_perf(input_result):
+    print('coverage: ', input_result['coverage'].mean(axis = 0))
+    print('edit norm: ', input_result['edit_norm'].mean(axis=0))
+    print('bleu score: ', input_result['bleu_score'].mean(axis=0))
+
+show_perf(v3)
+show_perf(v5_10) # best
+show_perf(v5_20)
